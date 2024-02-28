@@ -240,6 +240,16 @@ class XO_Featured_Image_Tools_Admin {
 			// Remove URL query.
 			$url = strtok( $url, '?' );
 
+			// Check filename.
+			if ( ! empty( $this->options['exclude_filenames'] ) ) {
+				$filename = end( explode( '/', $url ) );
+				foreach ( (array) $this->options['exclude_filenames'] as $exclude_filename ) {
+					if ( fnmatch( $exclude_filename, $filename ) ) {
+						continue 2;
+					}
+				}
+			}
+
 			// Get the ID from the wp-image-{$id} class.
 			$class_matches = array();
 			if ( preg_match( '/class\s*=\s*[\"|\'].*?wp-image-([0-9]*).*?[\"|\']/i', $img, $class_matches ) ) {
@@ -260,7 +270,7 @@ class XO_Featured_Image_Tools_Admin {
 			}
 
 			if ( $attachment_id ) {
-				// Size check.
+				// Check size.
 				if ( 0 < $exclude_small_image_size ) {
 					$meta_data = get_post_meta( $attachment_id, '_wp_attachment_metadata', true );
 					if ( ! is_array( $meta_data ) || ! isset( $meta_data['height'] ) || ! isset( $meta_data['width'] ) ||
@@ -273,7 +283,7 @@ class XO_Featured_Image_Tools_Admin {
 			} else { // phpcs:ignore Universal.ControlStructures.DisallowLonelyIf.Found
 				// Get external image.
 				if ( $external_image ) {
-					// Size check.
+					// Check size.
 					if ( 0 < $exclude_small_image_size ) {
 						$size = $this->get_image_size( $url );
 						if ( ! $size || $size[0] <= $exclude_small_image_size || $size[1] <= $exclude_small_image_size ) {
@@ -776,6 +786,7 @@ class XO_Featured_Image_Tools_Admin {
 		add_settings_section( 'xo_featured_image_tools_options_section', __( 'Options', 'xo-featured-image-tools' ), '__return_empty_string', 'xo_featured_image_tools_group' );
 		add_settings_field( 'external_image', __( 'External image', 'xo-featured-image-tools' ), array( $this, 'field_external_image' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
 		add_settings_field( 'exclude_small_image', __( 'Exclude small image', 'xo-featured-image-tools' ), array( $this, 'field_exclude_small_image' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
+		add_settings_field( 'exclude_filenames', __( 'Exclude specific file names', 'xo-featured-image-tools' ), array( $this, 'field_exclude_filenames' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
 		add_settings_field( 'default_image', __( 'Default image', 'xo-featured-image-tools' ), array( $this, 'field_default_image' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
 		add_settings_field( 'shortcode_content', __( 'Shortcode', 'xo-featured-image-tools' ), array( $this, 'field_shortcode_content' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
 		add_settings_field( 'pattern_content', __( 'Synced Pattern', 'xo-featured-image-tools' ), array( $this, 'field_pattern_content' ), 'xo_featured_image_tools_group', 'xo_featured_image_tools_options_section' );
@@ -852,6 +863,18 @@ class XO_Featured_Image_Tools_Admin {
 	}
 
 	/**
+	 * Register exclude filename.
+	 *
+	 * @since 1.14.0
+	 */
+	public function field_exclude_filenames() {
+		$filenames = isset( $this->options['exclude_filenames'] ) ? implode( ',', (array) $this->options['exclude_filenames'] ) : '';
+
+		echo '<label for="exclude_filenames"><input id="exclude_filenames" name="xo_featured_image_tools_options[exclude_filenames]" type="text" value="' . esc_attr( $filenames ) . '" class="regular-text" />';
+		echo '<p class="description">' . esc_html__( 'Comma-separated list of file names to exclude. Wildcards ("*", "?") are allowed.', 'xo-featured-image-tools' ) . '</p>';
+	}
+
+	/**
 	 * Register the default image field.
 	 *
 	 * @since 1.3.0
@@ -915,6 +938,17 @@ class XO_Featured_Image_Tools_Admin {
 		$input['skip_draft']               = ( isset( $input['skip_draft'] ) );
 		$input['shortcode_content']        = ( isset( $input['shortcode_content'] ) );
 		$input['pattern_content']          = ( isset( $input['pattern_content'] ) );
+
+		$exclude_filenames = array();
+		foreach ( explode( ',', (string) $input['exclude_filenames'] ) as $exclude_filename ) {
+			$exclude_filename = trim( $exclude_filename );
+			$check_filename   = str_replace( array( '*', '?' ), 'a', $exclude_filename );
+			if ( sanitize_file_name( $check_filename ) === $check_filename ) {
+				$exclude_filenames[] = $exclude_filename;
+			}
+		}
+		$input['exclude_filenames'] = $exclude_filenames;
+
 		return $input;
 	}
 

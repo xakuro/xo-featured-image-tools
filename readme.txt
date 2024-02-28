@@ -2,9 +2,9 @@
 Contributors: ishitaka, archidoc
 Tags: featured image, thumbnail
 Requires at least: 4.9
-Tested up to: 6.4
+Tested up to: 6.5
 Requires PHP: 5.6
-Stable tag: 1.13.1
+Stable tag: 1.14.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,9 @@ Automatically generate the featured image from the image of the post.
 3. Post List.
 
 == Changelog ==
+
+= 1.14.0 =
+* Added the ability to exclude specific file names.
 
 = 1.13.1 =
 * Adhered WordPress coding standards 3.0.1.
