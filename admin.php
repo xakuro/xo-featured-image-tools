@@ -345,22 +345,22 @@ class XO_Featured_Image_Tools_Admin {
 		check_ajax_referer( 'xo-featured-image-tools-tool', 'nonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			die( '-1' );
+			die( -1 );
 		}
 
-		if ( ! isset( $_REQUEST['id'] ) ) {
-			die( '-1' );
+		if ( ! isset( $_REQUEST['ids'] ) ) {
+			die( -1 );
 		}
 
 		set_time_limit( 600 );
 
 		header( 'Content-type: application/json' );
 
-		$post_ID             = (int) $_REQUEST['id'];
+		$post_ids            = array_map( 'absint', (array) $_REQUEST['ids'] );
 		$external_image      = isset( $_REQUEST['external_image'] ) ? 'true' === $_REQUEST['external_image'] : false;
-		$exclude_small_image = isset( $_REQUEST['exclude_small_image'] ) ? 'true' === $_REQUEST['exclude_small_image'] : false;
 		$default_image       = isset( $_REQUEST['default_image'] ) ? (int) $_REQUEST['default_image'] : 0;
 		$skip_draft          = isset( $this->options['skip_draft'] ) ? $this->options['skip_draft'] : false;
+		$exclude_small_image = isset( $this->options['exclude_small_image'] ) ? $this->options['exclude_small_image'] : false;
 
 		if ( $exclude_small_image ) {
 			$exclude_small_image_size = isset( $this->options['exclude_small_image_size'] ) ? (int) $this->options['exclude_small_image_size'] : 0;
@@ -368,33 +368,56 @@ class XO_Featured_Image_Tools_Admin {
 			$exclude_small_image_size = 0;
 		}
 
+		$counter       = 0;
+		$error_counter = 0;
+		$messages      = array();
+
 		try {
-			$attachment_id = get_post_thumbnail_id( $post_ID );
-			if ( false === $attachment_id ) {
-				die( wp_json_encode( array( 'error' => 'Failed post.' ) ) );
-			} elseif ( ! empty( $attachment_id ) ) {
-				die( wp_json_encode( array( 'success' => 'Already set.' ) ) );
-			} else { // phpcs:ignore Universal.ControlStructures.DisallowLonelyIf.Found
-				if ( get_post_meta( $post_ID, 'disable_featured_image', true ) ) {
-					die( wp_json_encode( array( 'success' => 'Skipped.' ) ) );
-				} else {
-					$post   = get_post( $post_ID );
-					$result = $this->set_featured_image( $post_ID, $post, $external_image, $exclude_small_image_size, $default_image, $skip_draft );
-					if ( 0 === $result ) {
-						die( wp_json_encode( array( 'success' => 'No image.' ) ) );
-					} elseif ( 0 < $result ) {
-						die( wp_json_encode( array( 'success' => 'Set image.' ) ) );
+			foreach ( $post_ids as $post_id ) {
+				$is_error = false;
+				++$counter;
+
+				$attachment_id = get_post_thumbnail_id( $post_id );
+				if ( false === $attachment_id ) {
+					$is_error = true;
+				} elseif ( ! empty( $attachment_id ) ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
+					// Already set.
+				} else { // phpcs:ignore Universal.ControlStructures.DisallowLonelyIf.Found
+					if ( get_post_meta( $post_id, 'disable_featured_image', true ) ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
+						// Skipped.
 					} else {
-						$title = isset( $post->post_title ) ? esc_html( $post->post_title ) : '';
-						/* translators: 1: Post title, 2: Post id. */
-						die( wp_json_encode( array( 'error' => sprintf( __( '"%1$s" (ID %2$d) failed.', 'xo-featured-image-tools' ), $title, $post->ID ) ) ) );
+						$post   = get_post( $post_id );
+						$result = $this->set_featured_image( $post_id, $post, $external_image, $exclude_small_image_size, $default_image, $skip_draft );
+						if ( 0 === $result ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
+							// No image.
+						} elseif ( 0 < $result ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
+							// Set image.
+						} else {
+							$is_error = true;
+						}
 					}
+				}
+
+				if ( $is_error ) {
+					$title = ( mb_strlen( $post->post_title ) > 34 ) ? mb_substr( $post->post_title, 0, 32 ) . '&hellip;' : $post->post_title;
+					/* translators: 1: Post title, 2: Post id. */
+					$messages[] = esc_html( sprintf( __( '"%1$s" (ID %2$d) failed.', 'xo-featured-image-tools' ), $title, $post_id ) );
+					++$error_counter;
 				}
 			}
 		} catch ( Exception $e ) {
-			die( wp_json_encode( array( 'error' => $e->getMessage() ) ) );
+			$messages[] = $e->getMessage();
 		}
-		exit;
+
+		die(
+			wp_json_encode(
+				array(
+					'count'       => $counter,
+					'error_count' => $error_counter,
+					'messages'    => $messages,
+				)
+			)
+		);
 	}
 
 	/**
@@ -463,22 +486,32 @@ class XO_Featured_Image_Tools_Admin {
 				$post_ids[] = $post->ID;
 			}
 
-			$external_image      = ( ! empty( $_REQUEST['featured-image-external-image'] ) );
-			$exclude_small_image = ( ! empty( $_REQUEST['featured-image-exclude-small-image'] ) );
-			$default_image       = ( ! empty( $_REQUEST['featured-image-default-image'] ) ) ? $default_image : 0;
-			$post_count          = count( $post_ids );
+			$external_image = ( ! empty( $_REQUEST['featured-image-external-image'] ) );
+			$default_image  = ( ! empty( $_REQUEST['featured-image-default-image'] ) ) ? $default_image : 0;
+			$post_count     = count( $post_ids );
+
+			/**
+			 * Filters Count per step.
+			 *
+			 * @since 1.15.0
+			 *
+			 * @param int $count_per_step Count per step.
+			 */
+			$count_per_step = (int) apply_filters( 'xo_featured_image_tools_count_per_step', 10 );
 
 			$xo_featured_image_tools_values = array(
 				'nonce'               => wp_create_nonce( 'xo-featured-image-tools-tool' ),
 				'post_ids'            => $post_ids,
 				'post_count'          => $post_count,
+				'count_per_step'      => $count_per_step,
 				'external_image'      => $external_image,
-				'exclude_small_image' => $exclude_small_image,
 				'default_image'       => $default_image,
 				'stop_button_message' => __( 'Abort...', 'xo-featured-image-tools' ),
 				'success_message'     => __( 'Completed. There is no failure.', 'xo-featured-image-tools' ),
 				/* translators: %s: Failure message. */
 				'failure_message'     => __( 'Completed. %s failed.', 'xo-featured-image-tools' ),
+				'error_message'       => __( 'Aborted due to an error that cannot continue.', 'xo-featured-image-tools' ),
+				'about_message'       => __( 'Aborted.', 'xo-featured-image-tools' ),
 			);
 
 			echo '<div id="xo-featured-image-back-link" style="display: none;">'
@@ -531,11 +564,6 @@ class XO_Featured_Image_Tools_Admin {
 			echo '<p><label><input id="featured-image-external-image" name="featured-image-external-image" type="checkbox" value="1" '
 				. checked( 1, $external_image, false ) . '> '
 				. esc_html__( 'Also applies to external images (images other than attachment files)', 'xo-featured-image-tools' ) . '</label></p>';
-
-			$exclude_small_image = isset( $this->options['exclude_small_image'] ) ? $this->options['exclude_small_image'] : false;
-			echo '<p><label><input id="featured-image-exclude-small-image" name="featured-image-exclude-small-image" type="checkbox" value="1" '
-				. checked( 1, $exclude_small_image, false ) . '> '
-				. esc_html__( 'Exclude small image', 'xo-featured-image-tools' ) . '</label></p>';
 
 			if ( $default_image ) {
 				echo '<p><label><input id="featured-image-default-image" name="featured-image-default-image" type="checkbox" value="1" checked="checked"> '
