@@ -242,7 +242,8 @@ class XO_Featured_Image_Tools_Admin {
 
 			// Check filename.
 			if ( ! empty( $this->options['exclude_filenames'] ) ) {
-				$filename = end( explode( '/', $url ) );
+				$url_items = explode( '/', $url );
+				$filename  = end( $url_items );
 				foreach ( (array) $this->options['exclude_filenames'] as $exclude_filename ) {
 					if ( fnmatch( $exclude_filename, $filename ) ) {
 						continue 2;
