@@ -4,7 +4,7 @@ Tags: featured image, thumbnail, auto featured image
 Requires at least: 4.9
 Tested up to: 6.5
 Requires PHP: 5.6
-Stable tag: 1.15.0
+Stable tag: 1.15.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,9 @@ Automatically generate the featured image from the image of the post.
 3. Post List.
 
 == Changelog ==
+
+= 1.15.1 =
+* Fixed a bug where an error message might be displayed.
 
 = 1.15.0 =
 * Accelerated batch processes.
