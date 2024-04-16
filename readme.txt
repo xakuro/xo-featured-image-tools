@@ -35,7 +35,7 @@ Automatically generate the featured image from the image of the post.
 == Changelog ==
 
 = 1.15.0 =
-* Improved performance.
+* Accelerated batch processes.
 
 = 1.14.0 =
 * Added the ability to exclude specific file names.
