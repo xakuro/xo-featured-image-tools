@@ -15,7 +15,7 @@
  * License:           GPLv2
  * Requires at least: 4.9
  * Requires PHP:      5.6
- * Version:           1.14.0
+ * Version:           1.15.0
  * Text Domain:       xo-featured-image-tools
  * Domain Path:       /languages
  */
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'XO_FEATURED_IMAGE_TOOLS_VERSION', '1.14.0' );
+define( 'XO_FEATURED_IMAGE_TOOLS_VERSION', '1.15.0' );
 
 require_once __DIR__ . '/admin.php';
 
