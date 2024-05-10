@@ -219,6 +219,8 @@ class XO_Featured_Image_Tools_Admin {
 			$content = do_shortcode( $content );
 		}
 
+		$home_url = get_home_url();
+
 		$matches = array();
 		preg_match_all( '/<img .*?src\s*=\s*[\"|\'](.*?)[\"|\'].*?>/i', $content, $matches );
 		foreach ( $matches[0] as $key => $img ) {
@@ -254,9 +256,11 @@ class XO_Featured_Image_Tools_Admin {
 			// Get the ID from the wp-image-{$id} class.
 			$class_matches = array();
 			if ( preg_match( '/class\s*=\s*[\"|\'].*?wp-image-([0-9]*).*?[\"|\']/i', $img, $class_matches ) ) {
-				$id = (int) $class_matches[1];
-				if ( ! empty( wp_get_attachment_image_url( $id ) ) ) {
-					$attachment_id = $id;
+				if ( 0 === strpos( $url, $home_url ) ) {
+					$id = (int) $class_matches[1];
+					if ( ! empty( wp_get_attachment_image_url( $id ) ) ) {
+						$attachment_id = $id;
+					}
 				}
 			}
 
@@ -267,7 +271,9 @@ class XO_Featured_Image_Tools_Admin {
 
 			// Get ID from GUID URL.
 			if ( ! $attachment_id ) {
-				$attachment_id = $this->get_attachment_id_by_guid( $url );
+				if ( 0 === strpos( $url, $home_url ) ) {
+					$attachment_id = $this->get_attachment_id_by_guid( $url );
+				}
 			}
 
 			if ( $attachment_id ) {
